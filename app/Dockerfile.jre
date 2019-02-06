@@ -1,10 +1,18 @@
-FROM debian:9-slim
+FROM openjdk:11-jdk-oracle as BUILD
 
-COPY target/app.war /root
-COPY myjre /root/myjre
+COPY ./target/app.war /root/app.jar
+
+RUN jlink \
+    	--output /root/myjre \
+    	--add-modules $(jdeps --print-module-deps /root/app.jar),jdk.jdwp.agent,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument
+
+FROM oraclelinux:7-slim
+
+COPY --from=BUILD /root/app.jar /root
+COPY --from=BUILD /root/myjre /root/myjre
 
 EXPOSE 8080 5005
 WORKDIR /root
 ENV _JAVA_OPTIONS '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005'
 
-CMD ["./myjre/bin/java", "-jar", "app.war"]
+CMD ["./myjre/bin/java", "-jar", "app.jar"]
