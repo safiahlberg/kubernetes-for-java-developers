@@ -1,15 +1,21 @@
-FROM openjdk:11-jdk-oracle as BUILD
+FROM alpine:latest as BUILD
 
-COPY ./target/app.war /root/app.jar
+# This is the latest Portola distribution at the time of writing
+# ADD https://download.java.net/java/early_access/alpine/29/binaries/openjdk-12-ea+29_linux-x64-musl_bin.tar.gz /opt/jdk
+# Use a downloaded copy locally to speed up testing
+ADD openjdk-12-ea+29_linux-x64-musl_bin.tar.gz /opt/jdk
 
-RUN jlink \
-    	--output /root/myjre \
-    	--add-modules $(jdeps --print-module-deps /root/app.jar),jdk.jdwp.agent,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument
+COPY ./target/app.jar /root/app.jar
 
-FROM oraclelinux:7-slim
+RUN /opt/jdk/jdk-12/bin/jlink --compress=2 \
+    --module-path /opt/jdk/jdk-12/jmods  \
+    --add-modules java.base,jdk.jdwp.agent,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument  \
+    --output /myjre
+
+FROM alpine:latest
 
 COPY --from=BUILD /root/app.jar /root
-COPY --from=BUILD /root/myjre /root/myjre
+COPY --from=BUILD /myjre /root/myjre
 
 EXPOSE 8080 5005
 WORKDIR /root
